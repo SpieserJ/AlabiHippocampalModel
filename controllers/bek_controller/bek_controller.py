@@ -70,4 +70,4 @@ def main():
         print("Invalid phase specified. Choose LEARN_OJAS, DMTP, or EXPLOIT.")
 
 if __name__ == "__main__":
-    main()
+    main("LEARN_OJAS")
