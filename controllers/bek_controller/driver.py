@@ -1,3 +1,4 @@
+import csv
 import numpy as np
 import tensorflow as tf
 from numpy.random import default_rng
@@ -993,7 +994,7 @@ class Driver(Supervisor):
         adjacency_matrix = np.max(tripartite_weights, axis=0)
 
         # Threshold to remove weak connections
-        threshold = 0.01  
+        threshold = 0.00  
         adjacency_matrix[adjacency_matrix < threshold] = 0
 
         # Normalize the adjacency matrix
@@ -1006,6 +1007,20 @@ class Driver(Supervisor):
 
         # For bidirectional connections, use line below 
         # adjacency_matrix = np.maximum(adjacency_matrix, adjacency_matrix.T)
+
+    def save_adjacency_matrix_to_csv(self):
+        """
+        Saves the adjacency matrix to a .csv file.
+        """
+        output_folder = "output_files"
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+
+        csv_path = os.path.join(output_folder, "adjacency_matrix.csv")
+        with open(csv_path, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerows(self.adjacency_matrix)
+        print(f"Adjacency matrix saved to {csv_path}")
 
     def compute_place_cell_centers(self):
         """
@@ -1087,31 +1102,31 @@ class Driver(Supervisor):
             print("No path exists between the start and goal positions.")
             return None
         
-def navigate_along_path(self, path):
-    for place_cell_index in path:
-        waypoint = self.place_cell_centers[place_cell_index]
-        if waypoint is not None:
-            self.move_to_position(waypoint)
-        else:
-            print(f"Place cell {place_cell_index} has no recorded position.")
+    def navigate_along_path(self, path):
+        for place_cell_index in path:
+            waypoint = self.place_cell_centers[place_cell_index]
+            if waypoint is not None:
+                self.move_to_position(waypoint)
+            else:
+                print(f"Place cell {place_cell_index} has no recorded position.")
 
-def move_to_position(self, position):
-    curr_pos = self.robot.getField("translation").getSFVec3f()
-    delta_x = position[0] - curr_pos[0]
-    delta_z = position[1] - curr_pos[2]
-    desired_angle = np.arctan2(delta_z, delta_x)
-    angle_to_turn = desired_angle - np.deg2rad(self.current_heading_deg)
-    self.turn(angle_to_turn)
-
-    # Start moving forward
-    self.forward()
-
-    # Move until we reach the waypoint
-    while self.robot.step(self.timestep) != -1:
-        self.sense()
-        self.compute()
+    def move_to_position(self, position):
         curr_pos = self.robot.getField("translation").getSFVec3f()
-        distance = np.linalg.norm([position[0] - curr_pos[0], position[1] - curr_pos[2]])
-        if distance < 0.1:  # Threshold for reaching the waypoint
-            self.stop()
-            break
+        delta_x = position[0] - curr_pos[0]
+        delta_z = position[1] - curr_pos[2]
+        desired_angle = np.arctan2(delta_z, delta_x)
+        angle_to_turn = desired_angle - np.deg2rad(self.current_heading_deg)
+        self.turn(angle_to_turn)
+
+        # Start moving forward
+        self.forward()
+
+        # Move until we reach the waypoint
+        while self.robot.step(self.timestep) != -1:
+            self.sense()
+            self.compute()
+            curr_pos = self.robot.getField("translation").getSFVec3f()
+            distance = np.linalg.norm([position[0] - curr_pos[0], position[1] - curr_pos[2]])
+            if distance < 0.1:  # Threshold for reaching the waypoint
+                self.stop()
+                break

@@ -3,13 +3,8 @@
 from driver import Driver, RobotMode
 import sys
 
-def main():
-    # Check command-line arguments to determine the phase
-    if len(sys.argv) < 2:
-        print("Please specify the phase: LEARN_OJAS, DMTP, or EXPLOIT")
-        return
+def main(phase):
 
-    phase = sys.argv[1].upper()
 
     # Initialize the robot
     bot = Driver()
@@ -51,7 +46,10 @@ def main():
 
         # Extract adjacency matrix and create graph
         bot.extract_adjacency_matrix()
+        bot.save_adjacency_matrix_to_csv()
         bot.compute_place_cell_centers()
+        num_valid_centers = sum(1 for center in bot.place_cell_centers if center is not None)
+        print(f"Number of valid place cell centers: {num_valid_centers}")
         bot.create_graph()
 
         # Define start and goal positions
@@ -70,4 +68,4 @@ def main():
         print("Invalid phase specified. Choose LEARN_OJAS, DMTP, or EXPLOIT.")
 
 if __name__ == "__main__":
-    main("LEARN_OJAS")
+    main("EXPLOIT")
