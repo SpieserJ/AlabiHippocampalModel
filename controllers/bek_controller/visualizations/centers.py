@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import os
-from typing import Optional, List
 
 
 # Custom function to calculate weighted mean
@@ -10,24 +9,10 @@ def weighted_mean(data, weights):
     return np.sum(data * weights) / np.sum(weights)
 
 
-# Function to plot place field centers with an optional background image
-def plot_place_fields(
-    valid_means,
-    image_path="",
-    output_dir="place_field_images/",
-    save_plot=True,
-    show_plot=False,
+# Function to plot place field centers with adjacencies
+def plot_place_fields_with_adjacencies(
+    valid_means, adjacencies, means, valid_cells, hmap_x, hmap_y, image_path=""
 ):
-    """
-    Plots the place field centers on a 2D plot with an optional background image.
-
-    Args:
-    - valid_means: A numpy array of valid place field centers (means).
-    - image_path: Path to the background image (optional).
-    - output_dir: Directory to save the plot (default is 'place_field_images/').
-    - save_plot: Boolean flag to save the plot (default is True).
-    - show_plot: Boolean flag to display the plot (default is False).
-    """
     if not os.path.exists(image_path):
         print(f"WARNING: {image_path} does not exist. Using blank background.")
         image_path = None
@@ -46,103 +31,55 @@ def plot_place_fields(
 
     # Plot the place field centers
     plt.scatter(valid_means[:, 0], valid_means[:, 1], c="red", marker="x", s=50)
-    plt.title("Place Field Centers")
+
+    # Plot the adjacencies
+    for i, j in adjacencies:
+        if valid_cells[i] and valid_cells[j]:
+            x_values = [means[i, 0], means[j, 0]]
+            y_values = [means[i, 1], means[j, 1]]
+            plt.plot(x_values, y_values, color="blue", linewidth=0.5)
+
+    plt.title("Place Field Centers with Adjacencies")
     plt.xlabel("X Coordinate")
     plt.ylabel("Y Coordinate")
     plt.grid(True)
     plt.gca().set_aspect("equal", adjustable="box")
-
-    # Save the plot if save_plot is True
-    if save_plot:
-        os.makedirs(output_dir, exist_ok=True)
-        file_path = os.path.join(output_dir, "place_field_centers.jpg")
-        plt.savefig(file_path)
-        print(f"Saved plot to {file_path}")
-
-    # Show the plot if show_plot is True
-    if show_plot:
-        plt.show()
-
-    # Close the figure to save memory
-    plt.close()
+    plt.show()
 
 
-# Function to calculate and return or plot place field centers for selected cells
-def get_place_field_centers(
-    hmap_x,
-    hmap_y,
-    hmap_z,
-    cell_indices: Optional[List[int]] = None,
-    image_path="",
-    save_plot=True,
-    show_plot=False,
-):
-    """
-    Returns or plots the place field centers for selected cells.
+# Load hmap data
+with open("C:/Users/alexm/Documents/senior_design/AlabiHippocampalModel-1/controllers/bek_controller/hmap_x.pkl", "rb") as f:
+    hmap_x = np.array(pickle.load(f))[10:]
+with open("C:/Users/alexm/Documents/senior_design/AlabiHippocampalModel-1/controllers/bek_controller/hmap_y.pkl", "rb") as f:
+    hmap_y = np.array(pickle.load(f))[10:]
+with open("C:/Users/alexm/Documents/senior_design/AlabiHippocampalModel-1/controllers/bek_controller/hmap_z.pkl", "rb") as f:
+    hmap_z = np.asarray(pickle.load(f))[10:]
 
-    Args:
-    - hmap_x: Array of x coordinates.
-    - hmap_y: Array of y coordinates.
-    - hmap_z: Activation map (z-axis data).
-    - cell_indices: Optional list of cell indices to plot. If None, plots all cells.
-    - image_path: Path to the background image (optional).
-    - save_plot: Boolean flag to save the plot (default is True).
-    - show_plot: Boolean flag to display the plot (default is False).
+# Calculate the place field centers (means)
+num_cells = hmap_z.shape[-1]
+means = np.empty([num_cells, 2])
 
-    Returns:
-    - valid_means: Numpy array of valid place field centers.
-    """
-    num_cells = hmap_z.shape[-1]
+for i in range(num_cells):
+    try:
+        x_mean = weighted_mean(hmap_x, weights=hmap_z[:, i])
+        y_mean = weighted_mean(hmap_y, weights=hmap_z[:, i])
+        means[i] = x_mean, y_mean
+    except:
+        means[i] = np.nan, np.nan  # Handle case with no firing
 
-    if cell_indices is None:
-        cell_indices = list(
-            range(num_cells)
-        )  # Use all cells if no specific indices are provided
+# Filter out cells with no activation (nan values)
+valid_cells = ~np.isnan(means).any(axis=1)
+valid_means = means[valid_cells]
 
-    means = np.empty([len(cell_indices), 2])
+# Load the saved place cell network
+with open("C:/Users/alexm/Documents/senior_design/AlabiHippocampalModel-1/controllers/bek_controller/pcn.pkl", "rb") as f:
+    pcn = pickle.load(f)
 
-    for i, cell_index in enumerate(cell_indices):
-        try:
-            x_mean = weighted_mean(hmap_x, weights=hmap_z[:, cell_index])
-            y_mean = weighted_mean(hmap_y, weights=hmap_z[:, cell_index])
-            means[i] = x_mean, y_mean
-        except:
-            means[i] = np.nan, np.nan  # Handle case with no firing
+# Get adjacencies
+adjacencies = pcn.get_adjacencies()
 
-    # Filter out cells with no activation (nan values)
-    valid_cells = ~np.isnan(means).any(axis=1)
-    valid_means = means[valid_cells]
-
-    # Plot the centers if needed
-    plot_place_fields(valid_means, image_path, save_plot=save_plot, show_plot=show_plot)
-
-    return valid_means
-
-
-if __name__ == "__main__":
-    # Load hmap data
-    with open("C:/Users/jacks/OneDrive/Desktop/NeuroNav/AlabiHippocampalModel/controllers/bek_controller/hmap_x.pkl", "rb") as f:
-        hmap_x = np.array(pickle.load(f))
-    with open("C:/Users/jacks/OneDrive/Desktop/NeuroNav/AlabiHippocampalModel/controllers/bek_controller/hmap_y.pkl", "rb") as f:
-        hmap_y = np.array(pickle.load(f))
-    with open("C:/Users/jacks/OneDrive/Desktop/NeuroNav/AlabiHippocampalModel/controllers/bek_controller/hmap_z.pkl", "rb") as f:
-        hmap_z = np.asarray(pickle.load(f))
-
-    # Optional specific cell indices (e.g., [0, 5, 10]) or None to plot all
-    specific_cells = None  # Replace with a list of specific cell indices if needed
-
-    # Plot with the environment image as background
-    image_path = "visualizations/environment_images/5x5_env_image.jpg"  # Set this to an empty string if no background is needed
-
-    # Get and plot place field centers
-    get_place_field_centers(
-        hmap_x,
-        hmap_y,
-        hmap_z,
-        cell_indices=specific_cells,
-        image_path=image_path,
-        save_plot=False,
-        show_plot=True,
-    )
-
-    print("Processed place field centers.")
+# Plot with the environment image as background
+image_path = "environment_images/5x5_env_image.jpg"  # Set this to an empty string if no background is needed
+plot_place_fields_with_adjacencies(
+    valid_means, adjacencies, means, valid_cells, hmap_x, hmap_y, image_path
+)
